@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ปฏิทินกิจกรรมโรงเรียน - Event Calendar">
+    <title>ปฏิทินกิจกรรม | Event Calendar</title>
+
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Material Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+    <!-- FullCalendar -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+    <!-- Custom Styles -->
+    <?!= include('style'); ?>
+</head>
+
+<body>
+    <!-- LOADER OVERLAY -->
+    <div id="loaderOverlay" class="loader-overlay">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">
+            <span id="loaderText">กำลังโหลด</span>
+            <span class="loader-dots"><span></span><span></span><span></span></span>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">📅</div>
+                <h1 class="login-title">ปฏิทินกิจกรรม</h1>
+                <p class="login-subtitle">Event Calendar System</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label required">ชื่อผู้ใช้</label>
+                    <div class="input-group">
+                        <span class="input-icon material-icons">person</span>
+                        <input type="text" id="loginUsername" class="form-input" placeholder="กรอกชื่อผู้ใช้" required
+                            autocomplete="username">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label required">รหัสผ่าน</label>
+                    <div class="input-group">
+                        <span class="input-icon material-icons">lock</span>
+                        <input type="password" id="loginPassword" class="form-input" placeholder="กรอกรหัสผ่าน" required
+                            autocomplete="current-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg">
+                    <span class="material-icons">login</span> เข้าสู่ระบบ
+                </button>
+            </form>
+            <button type="button" class="btn btn-secondary btn-block mt-2"
+                onclick="closeLoginModal()">ดูปฏิทินโดยไม่เข้าสู่ระบบ</button>
+        </div>
+    </div>
+
+    <!-- DAY POPUP -->
+    <div id="dayPopup" class="day-popup-overlay">
+        <div class="day-popup">
+            <div class="day-popup-header">
+                <h3 class="day-popup-title" id="dayPopupTitle">กิจกรรมวันที่</h3>
+                <button class="day-popup-close" onclick="closeDayPopup()">&times;</button>
+            </div>
+            <div class="day-popup-body" id="dayPopupBody"></div>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION -->
+    <main id="appMain">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-container">
+                <div class="header-brand">
+                    <div class="header-logo">📅</div>
+                    <div>
+                        <h1 class="header-title" id="headerSchoolName">ปฏิทินกิจกรรม</h1>
+                        <p class="header-subtitle">Event Calendar</p>
+                    </div>
+                </div>
+                <nav class="header-nav" id="loggedInNav">
+                    <button id="btnAdmin" class="btn btn-outline btn-sm hidden" onclick="toggleAdminPanel()">
+                        <span class="material-icons">settings</span> จัดการระบบ
+                    </button>
+                    <div class="header-user">
+                        <div class="header-user-avatar" id="userAvatar">A</div>
+                        <div class="header-user-info">
+                            <span class="header-user-name" id="userName">ผู้ใช้งาน</span>
+                            <span class="header-user-role" id="userRole">User</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="handleLogout()">
+                        <span class="material-icons">logout</span>
+                    </button>
+                </nav>
+                <button id="btnPublicLogin" class="btn btn-primary btn-sm" onclick="showLoginModal()">
+                    <span class="material-icons">login</span> เข้าสู่ระบบ
+                </button>
+            </div>
+        </header>
+
+        <!-- Add Event Toolbar -->
+        <div class="calendar-toolbar" id="calendarToolbar">
+            <div class="toolbar-actions" id="loggedInActions">
+                <button class="btn btn-primary" onclick="showEventModal()">
+                    <span class="material-icons">add</span> เพิ่มกิจกรรม
+                </button>
+            </div>
+        </div>
+
+        <!-- Calendar Layout -->
+        <div class="calendar-layout">
+            <div class="calendar-main">
+                <div id="fullCalendar" class="fullcalendar-container"></div>
+            </div>
+            <aside class="calendar-sidebar" id="calendarSidebar">
+                <div class="sidebar-header">
+                    <h3 class="sidebar-title">📋 กิจกรรม/สอนชดเชย</h3>
+                    <button class="sidebar-all-events-btn" onclick="showAllEventsModal()" title="ดูกิจกรรมทั้งหมด">
+                        <span class="material-icons">chevron_right</span>
+                    </button>
+                </div>
+                <div class="sidebar-filters">
+                    <button class="sidebar-filter-btn active" data-category="all"
+                        onclick="filterByCategory('all')">ทั้งหมด</button>
+                    <button class="sidebar-filter-btn" data-category="activity"
+                        onclick="filterByCategory('activity')">กิจกรรม</button>
+                    <button class="sidebar-filter-btn" data-category="substitute"
+                        onclick="filterByCategory('substitute')">สอนชดเชย</button>
+                </div>
+                <div class="sidebar-events" id="sidebarEvents"></div>
+            </aside>
+        </div>
+
+        <!-- Mobile Sidebar Toggle -->
+        <button class="sidebar-mobile-toggle" id="sidebarMobileToggle" onclick="toggleSidebar()">
+            <span class="material-icons">view_list</span>
+        </button>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <!-- Admin Modal -->
+        <div id="adminModal" class="modal-overlay">
+            <div class="modal modal-lg">
+                <div class="modal-header">
+                    <div class="modal-title-wrap">
+                        <span class="material-icons">settings</span>
+                        <h2 class="modal-title">จัดการระบบ</h2>
+                    </div>
+                    <button class="modal-close" onclick="closeAdminModal()">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                <div class="admin-tabs">
+                    <button class="admin-tab active" data-tab="departments" onclick="switchAdminTab('departments')">
+                        <span class="material-icons">business</span> ฝ่ายงาน
+                    </button>
+                    <button class="admin-tab" data-tab="users" onclick="switchAdminTab('users')">
+                        <span class="material-icons">people</span> ผู้ใช้งาน
+                    </button>
+                    <button class="admin-tab" data-tab="settings" onclick="switchAdminTab('settings')">
+                        <span class="material-icons">settings</span> ตั้งค่า
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="tabDepartments" class="admin-content">
+                        <div class="admin-header">
+                            <h3 class="admin-title">จัดการฝ่ายงาน</h3>
+                            <button class="btn btn-primary btn-sm" onclick="showDepartmentModal()">
+                                <span class="material-icons">add</span> เพิ่มฝ่ายงาน
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ชื่อฝ่าย</th>
+                                        <th>สี</th>
+                                        <th>สถานะ</th>
+                                        <th class="text-center">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="departmentsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="tabUsers" class="admin-content hidden">
+                        <div class="admin-header">
+                            <h3 class="admin-title">จัดการผู้ใช้งาน</h3>
+                            <button class="btn btn-primary btn-sm" onclick="showUserModal()">
+                                <span class="material-icons">person_add</span> เพิ่มผู้ใช้
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ชื่อผู้ใช้</th>
+                                        <th>ชื่อแสดง</th>
+                                        <th>บทบาท</th>
+                                        <th>ฝ่าย</th>
+                                        <th>สถานะ</th>
+                                        <th class="text-center">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="tabSettings" class="admin-content hidden">
+                        <div class="admin-header">
+                            <h3 class="admin-title">ตั้งค่าระบบ</h3>
+                        </div>
+                        <form id="settingsForm" onsubmit="saveSettings(event)">
+                            <div class="form-group">
+                                <label class="form-label">ชื่อโรงเรียน/หน่วยงาน</label>
+                                <input type="text" id="settingSchoolName" class="form-input" placeholder="ชื่อโรงเรียน">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">มุมมองเริ่มต้น</label>
+                                <select id="settingDefaultView" class="form-select">
+                                    <option value="month">รายเดือน (Month)</option>
+                                    <option value="week">รายสัปดาห์ (Week)</option>
+                                    <option value="day">รายวัน (Day)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Drive Folder ID</label>
+                                <input type="text" id="settingDriveFolderId" class="form-input"
+                                    placeholder="กรอก Folder ID">
+                                <small style="color: var(--gray-600);">ถ้าไม่กรอก จะสร้าง Folder อัตโนมัติ</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary"><span class="material-icons">save</span>
+                                บันทึกการตั้งค่า</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- EVENT MODAL -->
+    <div id="eventModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><span class="material-icons">event</span> <span
+                        id="eventModalTitle">เพิ่มกิจกรรม</span></h3>
+                <button class="modal-close" onclick="closeEventModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="eventForm">
+                    <input type="hidden" id="eventId">
+                    <div class="form-group">
+                        <label class="form-label required">ชื่อกิจกรรม</label>
+                        <input type="text" id="eventTitle" class="form-input" placeholder="กรอกชื่อกิจกรรม" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">รายละเอียด</label>
+                        <textarea id="eventDescription" class="form-textarea"
+                            placeholder="รายละเอียดกิจกรรม"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ประเภท</label>
+                        <select id="eventCategory" class="form-select">
+                            <option value="activity">กิจกรรม</option>
+                            <option value="substitute">สอนชดเชย</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox"><input type="checkbox" id="eventAllDay"
+                                onchange="toggleAllDay()"><span>กิจกรรมทั้งวัน</span></label>
+                    </div>
+                    <div class="datetime-group">
+                        <div class="form-group">
+                            <label class="form-label required">วันเริ่มต้น</label>
+                            <input type="date" id="eventStartDate" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">วันสิ้นสุด</label>
+                            <input type="date" id="eventEndDate" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="datetime-group" id="timeInputs">
+                        <div class="form-group">
+                            <label class="form-label">เวลาเริ่ม</label>
+                            <input type="time" id="eventStartTime" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">เวลาสิ้นสุด</label>
+                            <input type="time" id="eventEndTime" class="form-input">
+                        </div>
+                    </div>
+                    <div class="datetime-group">
+                        <div class="form-group">
+                            <label class="form-label">ฝ่ายงาน</label>
+                            <select id="eventDepartment" class="form-select">
+                                <option value="">-- เลือกฝ่ายงาน --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">สี</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" id="eventColor" class="color-picker" value="#667eea">
+                                <span id="eventColorHex">#667eea</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">สถานที่</label>
+                        <input type="text" id="eventLocation" class="form-input" placeholder="สถานที่จัดงาน">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">โปสเตอร์/รูปภาพประกอบ</label>
+                        <div class="file-upload-zone" id="posterUploadZone"
+                            onclick="document.getElementById('posterInput').click()">
+                            <input type="file" id="posterInput" class="file-upload-input" accept="image/*"
+                                onchange="handlePosterUpload(event)">
+                            <div class="file-upload-icon">📷</div>
+                            <p class="file-upload-text">คลิกหรือลากไฟล์มาวาง</p>
+                            <p class="file-upload-hint">รองรับ: JPG, PNG, GIF (ขนาดไม่เกิน 10MB)</p>
+                        </div>
+                        <div id="posterPreview" class="file-preview hidden">
+                            <img id="posterPreviewImage" class="file-preview-image">
+                            <div class="file-preview-info">
+                                <p class="file-preview-name" id="posterPreviewName"></p>
+                                <p class="file-preview-size" id="posterPreviewSize"></p>
+                            </div>
+                            <span class="file-preview-remove material-icons" onclick="removePoster()">close</span>
+                        </div>
+                        <div id="uploadProgress" class="upload-progress hidden">
+                            <div class="upload-progress-bar">
+                                <div class="upload-progress-fill" id="uploadProgressFill"></div>
+                            </div>
+                            <p class="upload-progress-text" id="uploadProgressText">กำลังอัปโหลด 0%</p>
+                        </div>
+                        <input type="hidden" id="posterFileId">
+                        <input type="hidden" id="posterFileName">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEventModal()">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveEvent()"><span
+                        class="material-icons">save</span> บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EVENT DETAIL MODAL -->
+    <div id="eventDetailModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><span class="material-icons">event</span> รายละเอียดกิจกรรม</h3>
+                <button class="modal-close" onclick="closeEventDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="event-detail" id="eventDetailContent"></div>
+            </div>
+            <div class="modal-footer" id="eventDetailFooter">
+                <button type="button" class="btn btn-secondary" onclick="closeEventDetailModal()">ปิด</button>
+                <button type="button" class="btn btn-danger hidden" id="btnDeleteEvent"
+                    onclick="confirmDeleteEvent()"><span class="material-icons">delete</span> ลบ</button>
+                <button type="button" class="btn btn-primary hidden" id="btnEditEvent"
+                    onclick="editCurrentEvent()"><span class="material-icons">edit</span> แก้ไข</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEPARTMENT MODAL -->
+    <div id="departmentModal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title"><span class="material-icons">business</span> <span
+                        id="departmentModalTitle">เพิ่มฝ่ายงาน</span></h3>
+                <button class="modal-close" onclick="closeDepartmentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="departmentForm">
+                    <input type="hidden" id="departmentId">
+                    <div class="form-group">
+                        <label class="form-label required">ชื่อฝ่าย</label>
+                        <input type="text" id="departmentName" class="form-input" placeholder="กรอกชื่อฝ่าย" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">สีประจำฝ่าย</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="departmentColor" class="color-picker" value="#3498db">
+                            <span id="departmentColorHex">#3498db</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox"><input type="checkbox" id="departmentActive"
+                                checked><span>เปิดใช้งาน</span></label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDepartmentModal()">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveDepartment()"><span
+                        class="material-icons">save</span> บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER MODAL -->
+    <div id="userModal" class="modal-overlay">
+        <div class="modal" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3 class="modal-title"><span class="material-icons">person</span> <span
+                        id="userModalTitle">เพิ่มผู้ใช้งาน</span></h3>
+                <button class="modal-close" onclick="closeUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId">
+                    <div class="datetime-group">
+                        <div class="form-group">
+                            <label class="form-label required">ชื่อผู้ใช้ (Username)</label>
+                            <input type="text" id="userUsername" class="form-input" placeholder="ชื่อสำหรับเข้าสู่ระบบ"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" id="passwordLabel">รหัสผ่าน</label>
+                            <input type="password" id="userPassword" class="form-input" placeholder="กรอกรหัสผ่าน">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label required">ชื่อที่แสดง</label>
+                        <input type="text" id="userDisplayName" class="form-input" placeholder="ชื่อสำหรับแสดงผล"
+                            required>
+                    </div>
+                    <div class="datetime-group">
+                        <div class="form-group">
+                            <label class="form-label">บทบาท</label>
+                            <select id="userFormRole" class="form-select">
+                                <option value="user">User (ผู้ใช้ทั่วไป)</option>
+                                <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ฝ่ายงาน</label>
+                            <select id="userDepartment" class="form-select">
+                                <option value="">-- ไม่ระบุ --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox"><input type="checkbox" id="userActive"
+                                checked><span>เปิดใช้งาน</span></label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()"><span
+                        class="material-icons">save</span> บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL EVENTS MODAL -->
+    <div id="allEventsModal" class="modal-overlay">
+        <div class="modal modal-xl">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <span class="material-icons">list_alt</span>
+                    <h2 class="modal-title">กิจกรรมทั้งหมด</h2>
+                </div>
+                <button class="modal-close" onclick="closeAllEventsModal()">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="all-events-filters">
+                <div class="all-events-search">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="allEventsSearch" class="form-input" placeholder="ค้นหากิจกรรม..."
+                        oninput="filterAllEvents()">
+                </div>
+                <div class="all-events-filter-group">
+                    <select id="allEventsMonth" class="form-select" onchange="filterAllEvents()">
+                        <option value="">ทุกเดือน</option>
+                        <option value="0">มกราคม</option>
+                        <option value="1">กุมภาพันธ์</option>
+                        <option value="2">มีนาคม</option>
+                        <option value="3">เมษายน</option>
+                        <option value="4">พฤษภาคม</option>
+                        <option value="5">มิถุนายน</option>
+                        <option value="6">กรกฎาคม</option>
+                        <option value="7">สิงหาคม</option>
+                        <option value="8">กันยายน</option>
+                        <option value="9">ตุลาคม</option>
+                        <option value="10">พฤศจิกายน</option>
+                        <option value="11">ธันวาคม</option>
+                    </select>
+                    <select id="allEventsYear" class="form-select" onchange="filterAllEvents()">
+                        <option value="">ทุกปี</option>
+                    </select>
+                    <select id="allEventsCategory" class="form-select" onchange="filterAllEvents()">
+                        <option value="all">ทุกประเภท</option>
+                        <option value="activity">กิจกรรม</option>
+                        <option value="substitute">สอนชดเชย</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="all-events-list" id="allEventsList"></div>
+            </div>
+            <div class="modal-footer all-events-footer">
+                <div class="all-events-info" id="allEventsInfo">แสดง 0 รายการ</div>
+                <div class="all-events-pagination" id="allEventsPagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <?!= include('script'); ?>
+    <?!= include('script-fullcalendar'); ?>
+</body>
+
+</html>
